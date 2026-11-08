@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+:root {
+  --navy: #102747;
+  --blue: #24558A;
+  --teal: #27A6A1;
+  --cool-grey: #E9EFF6;
+  --white: #FFFFFF;
+}
+
+body {
+  background-color: #F8FAFC;
+  color: #102747;
+  min-height: 100vh;
+}
