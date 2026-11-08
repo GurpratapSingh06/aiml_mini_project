@@ -25,14 +25,23 @@ def add_app_context(
     return event_dict
 
 
+def add_logger_name(
+    logger: WrappedLogger, method_name: str, event_dict: EventDict
+) -> EventDict:
+    """Safely extract logger name if present on logger or in context."""
+    if hasattr(logger, "name"):
+        event_dict["logger"] = logger.name
+    return event_dict
+
+
 def configure_logging() -> None:
     """Configure structlog and standard logging."""
     log_level = getattr(logging, settings.app_log_level.upper(), logging.INFO)
 
     shared_processors: list[Any] = [
         structlog.contextvars.merge_contextvars,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
+        structlog.processors.add_log_level,
+        add_logger_name,
         structlog.processors.TimeStamper(fmt="iso"),
         add_app_context,
         structlog.processors.StackInfoRenderer(),
@@ -69,4 +78,4 @@ def configure_logging() -> None:
 
 def get_logger(name: str = "vedanta") -> structlog.BoundLogger:
     """Get a named structlog logger."""
-    return structlog.get_logger(name)
+    return structlog.get_logger().bind(logger=name)

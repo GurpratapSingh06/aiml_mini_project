@@ -34,11 +34,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Verify database connection
     try:
-        async with async_engine.begin() as conn:
-            await conn.run_sync(lambda c: c.execute(c.connection.cursor().connection.cursor().__class__.__mro__[0].__subclasses__()[0] if False else None) if False else None)
+        from sqlalchemy import text
+        async with async_engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
         logger.info("Database connection verified")
     except Exception as e:
-        logger.warning("Database not yet reachable at startup", error=str(e))
+        logger.warning("Database not yet reachable at startup (running in local mode)", error=str(e))
 
     # Load models in background (non-blocking)
     logger.info("VEDANTA startup complete — ready to serve requests")
