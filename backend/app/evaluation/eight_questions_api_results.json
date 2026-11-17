@@ -1,0 +1,375 @@
+[
+  {
+    "number": 1,
+    "raw_query": "Who is the HOD of Computer Engineering?",
+    "latency_ms": 5395.87,
+    "http_status": 200,
+    "normalized_query": "who is the hod of computer engineering?",
+    "selected_intent": "entity_lookup",
+    "verification_status": "verified",
+    "is_answerable": true,
+    "retrieved_candidates": 10,
+    "top_chunks": [
+      {
+        "chunk_id": "263e9ae2-139f-480d-a001-3aa4aed9611f",
+        "score": 0.0301,
+        "rank": 1,
+        "retrieval_method": "hybrid",
+        "bm25_score": 17.1599,
+        "semantic_score": 0.5119,
+        "source_url": "https://mitaoe.ac.in/mitaoe-academic-departments.php"
+      },
+      {
+        "chunk_id": "anchor-comp-hod",
+        "score": 0.0297,
+        "rank": 2,
+        "retrieval_method": "hybrid",
+        "bm25_score": 14.9092,
+        "semantic_score": 0.715,
+        "source_url": "https://mitaoe.ac.in/department-of-computer-engineering.php"
+      },
+      {
+        "chunk_id": "6b95b97b-d7da-4691-96d3-d3c14f5de6b7",
+        "score": 0.0295,
+        "rank": 3,
+        "retrieval_method": "hybrid",
+        "bm25_score": 17.6818,
+        "semantic_score": 0.4641,
+        "source_url": "https://mitaoe.ac.in/mitaoe-academic-departments.php"
+      }
+    ],
+    "answer": "The Head of the Department (HOD) of **Computer Engineering** at MIT Academy of Engineering (MITAOE) is **Dr. Pramod D. Ganjewar (Dr. P D Ganjewar)**.\n\n- **Designation:** Associate Professor & HOD\n- **Department:** Computer Engineering\n- **Official Email:** `hod.comp@mitaoe.edu.in`\n- **Official Source:** [https://mitaoe.ac.in/department-of-computer-engineering.php](https://mitaoe.ac.in/department-of-computer-engineering.php)\n\n> \u2139\ufe0f *Historical note: Dr. Sandip A. Gade previously served as HOD for earlier academic terms*",
+    "citations": [
+      "https://mitaoe.ac.in/mitaoe-academic-departments.php",
+      "https://mitaoe.ac.in/department-of-computer-engineering.php",
+      "https://mitaoe.ac.in/department-of-computer-science-&-engineering-data-science.php",
+      "https://mitaoe.ac.in/department-of-Computer-Science-&-Engineering-AI-&-Ml.php"
+    ]
+  },
+  {
+    "number": 2,
+    "raw_query": "Who is the HOD of Information Technology?",
+    "latency_ms": 14.71,
+    "http_status": 200,
+    "normalized_query": "who is the hod of information technology?",
+    "selected_intent": "entity_lookup",
+    "verification_status": "verified",
+    "is_answerable": true,
+    "retrieved_candidates": 10,
+    "top_chunks": [
+      {
+        "chunk_id": "anchor-it-hod",
+        "score": 0.0311,
+        "rank": 1,
+        "retrieval_method": "hybrid",
+        "bm25_score": 13.4513,
+        "semantic_score": 0.5694,
+        "source_url": "https://mitaoe.ac.in/department-of-information-technology.php"
+      },
+      {
+        "chunk_id": "77831f0e-ad80-499f-98c5-ed4724e970ca",
+        "score": 0.0296,
+        "rank": 2,
+        "retrieval_method": "hybrid",
+        "bm25_score": 12.8335,
+        "semantic_score": 0.5612,
+        "source_url": "https://mitaoe.ac.in/department-of-information-technology.php"
+      },
+      {
+        "chunk_id": "240dcbf2-3cb5-4b8f-a0a7-a45b01fe1560",
+        "score": 0.0292,
+        "rank": 3,
+        "retrieval_method": "hybrid",
+        "bm25_score": 13.1086,
+        "semantic_score": 0.4892,
+        "source_url": "https://mitaoe.ac.in/mitaoe-academic-departments.php"
+      }
+    ],
+    "answer": "The Head of the Department (HOD) of **Information Technology** at MIT Academy of Engineering (MITAOE) is **Dr. Santosh Warpe**.\n\n- **Designation:** Sr. Assistant Professor & HOD\n- **Department:** Information Technology\n- **Official Email:** `hodit@mitaoe.ac.in`\n- **Official Source:** [https://mitaoe.ac.in/department-of-information-technology.php](https://mitaoe.ac.in/department-of-information-technology.php)",
+    "citations": [
+      "https://mitaoe.ac.in/department-of-information-technology.php",
+      "https://mitaoe.ac.in/mitaoe-academic-departments.php"
+    ]
+  },
+  {
+    "number": 3,
+    "raw_query": "Who is the Director of MITAOE?",
+    "latency_ms": 8.52,
+    "http_status": 200,
+    "normalized_query": "who is the director of mitaoe?",
+    "selected_intent": "entity_lookup",
+    "verification_status": "verified",
+    "is_answerable": true,
+    "retrieved_candidates": 10,
+    "top_chunks": [
+      {
+        "chunk_id": "anchor-director",
+        "score": 0.0323,
+        "rank": 1,
+        "retrieval_method": "hybrid",
+        "bm25_score": 15.1365,
+        "semantic_score": 0.8432,
+        "source_url": "https://mitaoe.ac.in/mitaoe-academic-council.php"
+      },
+      {
+        "chunk_id": "f9c13a8e-05ba-4844-a22b-16a071a1677e",
+        "score": 0.0306,
+        "rank": 2,
+        "retrieval_method": "hybrid",
+        "bm25_score": 15.2679,
+        "semantic_score": 0.639,
+        "source_url": "https://mitaoe.ac.in/mitaoe-governing-body.php"
+      },
+      {
+        "chunk_id": "263e9ae2-139f-480d-a001-3aa4aed9611f",
+        "score": 0.029,
+        "rank": 3,
+        "retrieval_method": "hybrid",
+        "bm25_score": 14.593,
+        "semantic_score": 0.6245,
+        "source_url": "https://mitaoe.ac.in/mitaoe-academic-departments.php"
+      }
+    ],
+    "answer": "The Director of MIT Academy of Engineering (MITAOE) is **Dr. Yogesh. J. Bhalerao (Chairman**.\n\n- **Designation:** Director\n- **Official Source:** [https://mitaoe.ac.in/mitaoe-academic-council.php](https://mitaoe.ac.in/mitaoe-academic-council.php)",
+    "citations": [
+      "https://mitaoe.ac.in/mitaoe-academic-council.php",
+      "https://mitaoe.ac.in/mitaoe-governing-body.php",
+      "https://mitaoe.ac.in/mitaoe-academic-departments.php",
+      "https://mitaoe.ac.in/Department-of-Electronics-and-Computer-Engineering.php",
+      "https://mitaoe.ac.in/department-of-civil-engineering.php"
+    ]
+  },
+  {
+    "number": 4,
+    "raw_query": "What is the current academic year?",
+    "latency_ms": 9.37,
+    "http_status": 200,
+    "normalized_query": "what is the current academic year?",
+    "selected_intent": "temporal",
+    "verification_status": "verified",
+    "is_answerable": true,
+    "retrieved_candidates": 10,
+    "top_chunks": [
+      {
+        "chunk_id": "anchor-academic-year-current",
+        "score": 0.0328,
+        "rank": 1,
+        "retrieval_method": "hybrid",
+        "bm25_score": 13.413,
+        "semantic_score": 0.6329,
+        "source_url": "https://mitaoe.ac.in/mitaoe-academic-calendar.php"
+      },
+      {
+        "chunk_id": "c5b4e978-edcd-490a-af36-fbec1db9159a",
+        "score": 0.0161,
+        "rank": 2,
+        "retrieval_method": "hybrid",
+        "bm25_score": 7.5974,
+        "semantic_score": 0.0,
+        "source_url": "https://mitaoe.ac.in/about-mitaoe.php"
+      },
+      {
+        "chunk_id": "anchor-calendar-previous",
+        "score": 0.0161,
+        "rank": 3,
+        "retrieval_method": "hybrid",
+        "bm25_score": 0.0,
+        "semantic_score": 0.6154,
+        "source_url": "https://mitaoe.ac.in/mitaoe-academic-calendar.php"
+      }
+    ],
+    "answer": "The current official academic year at MIT Academy of Engineering (MITAOE) is **2026\u201327 (AY 2026-27)**.\n\n- **Active Instructional Period:** Term I of Academic Year 2026-27\n- **Term Commencement:** July 2026\n- **Official Documents:** Institutional Academic Calendar 2026-27 Term 1, Information Brochure AY 2026-27, and Mandatory Disclosure 2026-27.\n\n\ud83d\udd17 **Official Sources:**\n- [MITAOE Academic Calendar Portal](https://mitaoe.ac.in/mitaoe-academic-calendar.php)\n- [2026-2027 Term I UG Calendar](https://mitaoe.ac.in/2026-2027-Term-I-UG-Calendar.html)",
+    "citations": [
+      "https://mitaoe.ac.in/mitaoe-academic-calendar.php",
+      "https://mitaoe.ac.in/about-mitaoe.php",
+      "https://mitaoe.ac.in/",
+      "https://mitaoe.ac.in/2026-2027-Term-I-UG-Calendar.html"
+    ]
+  },
+  {
+    "number": 5,
+    "raw_query": "Show the 2026\u201327 academic calendar.",
+    "latency_ms": 7.62,
+    "http_status": 200,
+    "normalized_query": "show the 2026\u201327 academic calendar.",
+    "selected_intent": "temporal",
+    "verification_status": "verified",
+    "is_answerable": true,
+    "retrieved_candidates": 10,
+    "top_chunks": [
+      {
+        "chunk_id": "anchor-academic-year-current",
+        "score": 0.032,
+        "rank": 1,
+        "retrieval_method": "hybrid",
+        "bm25_score": 16.0391,
+        "semantic_score": 0.5593,
+        "source_url": "https://mitaoe.ac.in/mitaoe-academic-calendar.php"
+      },
+      {
+        "chunk_id": "anchor-academic-calendar-2026-27",
+        "score": 0.0317,
+        "rank": 2,
+        "retrieval_method": "hybrid",
+        "bm25_score": 10.9559,
+        "semantic_score": 0.625,
+        "source_url": "https://mitaoe.ac.in/2026-2027-Term-I-UG-Calendar.html"
+      },
+      {
+        "chunk_id": "34d71b7b-0071-4e3b-a7d1-30ab364721c9",
+        "score": 0.0315,
+        "rank": 3,
+        "retrieval_method": "hybrid",
+        "bm25_score": 13.859,
+        "semantic_score": 0.4599,
+        "source_url": "https://mitaoe.ac.in/2026-2027-Term-I-UG-Calendar.html"
+      }
+    ],
+    "answer": "The current official academic year at MIT Academy of Engineering (MITAOE) is 2026\u201327 (AY 2026-27)\n\n*Source: MITAOE Academic Calendar & Official Term Schedules AY 2026-27*",
+    "citations": [
+      "https://mitaoe.ac.in/mitaoe-academic-calendar.php",
+      "https://mitaoe.ac.in/2026-2027-Term-I-UG-Calendar.html",
+      "https://mitaoe.ac.in/"
+    ]
+  },
+  {
+    "number": 6,
+    "raw_query": "List all academic departments.",
+    "latency_ms": 7.06,
+    "http_status": 200,
+    "normalized_query": "list all academic departments.",
+    "selected_intent": "factual",
+    "verification_status": "verified",
+    "is_answerable": true,
+    "retrieved_candidates": 10,
+    "top_chunks": [
+      {
+        "chunk_id": "88672e0c-cc9a-46a3-a2cf-3ec6bdf3cecb",
+        "score": 0.0295,
+        "rank": 1,
+        "retrieval_method": "hybrid",
+        "bm25_score": 5.3325,
+        "semantic_score": 0.4101,
+        "source_url": "https://mitaoe.ac.in/mitaoe-academic-departments.php"
+      },
+      {
+        "chunk_id": "42affdbf-7bef-49b1-b87f-2d04770f1b2a",
+        "score": 0.0257,
+        "rank": 2,
+        "retrieval_method": "hybrid",
+        "bm25_score": 2.5933,
+        "semantic_score": 0.4068,
+        "source_url": "https://mitaoe.ac.in/mitaoe-school-of-humanities-and-engineering-sciences.php"
+      },
+      {
+        "chunk_id": "34d71b7b-0071-4e3b-a7d1-30ab364721c9",
+        "score": 0.0164,
+        "rank": 3,
+        "retrieval_method": "hybrid",
+        "bm25_score": 5.4142,
+        "semantic_score": 0.0,
+        "source_url": "https://mitaoe.ac.in/2026-2027-Term-I-UG-Calendar.html"
+      }
+    ],
+    "answer": "Academic Departments at MIT Academy of Engineering\nAbout Us\nMIT Pune\nMIT Academy of Engineering\nLeadership\nStrategic Plan\nOrganizational Chart\nDirector's Desk\nGoverning Body\nAcademic Council\nAccreditation\nAcademics\nAcademic Departments\nAcademic Calendar\nAcademic Practices\nCELT\nUHV-CELL\nExamination Section\nLibrary\nMOODLE\nNIRF\nAI Integration Guidelines\nPrograms\nB.Tech Programs\nB.Des Programs\nPost Graduate Programs\nPHD Programs\nAdmissions\nAdmissions\nFee Structure\nNRI Students\nImportant links IL/ACA\n\n*Source: Academic Departments at MIT Academy of Engineering*",
+    "citations": [
+      "https://mitaoe.ac.in/mitaoe-academic-departments.php",
+      "https://mitaoe.ac.in/mitaoe-school-of-humanities-and-engineering-sciences.php",
+      "https://mitaoe.ac.in/2026-2027-Term-I-UG-Calendar.html",
+      "https://mitaoe.ac.in/department-of-information-technology.php"
+    ]
+  },
+  {
+    "number": 7,
+    "raw_query": "Find the latest examination timetable.",
+    "latency_ms": 7.29,
+    "http_status": 200,
+    "normalized_query": "find the latest examination timetable.",
+    "selected_intent": "temporal",
+    "verification_status": "verified",
+    "is_answerable": true,
+    "retrieved_candidates": 10,
+    "top_chunks": [
+      {
+        "chunk_id": "anchor-timetable-2026-27",
+        "score": 0.0328,
+        "rank": 1,
+        "retrieval_method": "hybrid",
+        "bm25_score": 15.9536,
+        "semantic_score": 0.6674,
+        "source_url": "https://mitaoe.ac.in/academic-year-2026-2027.php"
+      },
+      {
+        "chunk_id": "818bbb7f-faac-40a4-a96d-54d01664f179",
+        "score": 0.0323,
+        "rank": 2,
+        "retrieval_method": "hybrid",
+        "bm25_score": 11.9389,
+        "semantic_score": 0.597,
+        "source_url": "https://mitaoe.ac.in/academic-year-2024-2025.php"
+      },
+      {
+        "chunk_id": "4ce40c9d-0e20-46cf-8ef2-9f363f0c5d4e",
+        "score": 0.0315,
+        "rank": 3,
+        "retrieval_method": "hybrid",
+        "bm25_score": 11.7179,
+        "semantic_score": 0.5911,
+        "source_url": "https://mitaoe.ac.in/academic-year-2024-2025.php"
+      }
+    ],
+    "answer": "**MITAOE Examination Time Table (Academic Year 2026\u20132027):**\n\nThe latest examination schedules, in-semester assessments, and end-semester examination timetables for AY 2026\u201327 are published by the Examination Section.\n\n- **Current AY Timetable Portal:** [MITAOE AY 2026-2027 Time Table](https://mitaoe.ac.in/academic-year-2026-2027.php)\n- **Main Examination Section:** [MITAOE Examination Portal](https://mitaoe.ac.in/Examination-Time-Table.php)\n- **Historical Timetables:** Available for AY 2025-2026 (`academic-year-2025-2026.php`) and AY 2024-2025 (`academic-year-2024-2025.php`).",
+    "citations": [
+      "https://mitaoe.ac.in/academic-year-2026-2027.php",
+      "https://mitaoe.ac.in/academic-year-2024-2025.php"
+    ]
+  },
+  {
+    "number": 8,
+    "raw_query": "Show the source page for the Computer Engineering HOD.",
+    "latency_ms": 8.1,
+    "http_status": 200,
+    "normalized_query": "show the source page for the computer engineering hod.",
+    "selected_intent": "entity_lookup",
+    "verification_status": "verified",
+    "is_answerable": true,
+    "retrieved_candidates": 10,
+    "top_chunks": [
+      {
+        "chunk_id": "anchor-comp-hod",
+        "score": 0.0325,
+        "rank": 1,
+        "retrieval_method": "hybrid",
+        "bm25_score": 17.6616,
+        "semantic_score": 0.6768,
+        "source_url": "https://mitaoe.ac.in/department-of-computer-engineering.php"
+      },
+      {
+        "chunk_id": "anchor-se-hod",
+        "score": 0.0313,
+        "rank": 2,
+        "retrieval_method": "hybrid",
+        "bm25_score": 16.1135,
+        "semantic_score": 0.5743,
+        "source_url": "https://mitaoe.ac.in/department-of-software-engineering.php"
+      },
+      {
+        "chunk_id": "anchor-aiml-hod",
+        "score": 0.031,
+        "rank": 3,
+        "retrieval_method": "hybrid",
+        "bm25_score": 16.3398,
+        "semantic_score": 0.5261,
+        "source_url": "https://mitaoe.ac.in/department-of-Computer-Science-&-Engineering-AI-&-Ml.php"
+      }
+    ],
+    "answer": "The official page for the **Department of Computer Engineering** at MITAOE is accessible at:\n\n\ud83d\udd17 **[https://mitaoe.ac.in/department-of-computer-engineering.php](https://mitaoe.ac.in/department-of-computer-engineering.php)**\n\n*Source: MITAOE Official Portal*",
+    "citations": [
+      "https://mitaoe.ac.in/department-of-computer-engineering.php",
+      "https://mitaoe.ac.in/department-of-software-engineering.php",
+      "https://mitaoe.ac.in/department-of-Computer-Science-&-Engineering-AI-&-Ml.php",
+      "https://mitaoe.ac.in/department-of-computer-science-&-engineering-data-science.php",
+      "https://mitaoe.ac.in/mitaoe-academic-departments.php"
+    ]
+  }
+]

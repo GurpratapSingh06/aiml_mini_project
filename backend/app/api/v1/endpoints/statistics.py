@@ -1,6 +1,6 @@
 """VEDANTA — Statistics endpoints."""
 from fastapi import APIRouter, Query
-from typing import Optional, List
+from typing import Optional, List, Any, Dict
 from pydantic import BaseModel
 from app.core.logging import get_logger
 
@@ -9,13 +9,17 @@ logger = get_logger(__name__)
 
 
 class PlacementStats(BaseModel):
-    department: Optional[str]
+    department: Optional[str] = None
     academic_year: str
-    total_students: Optional[int]
-    students_placed: Optional[int]
-    highest_package_lpa: Optional[float]
-    average_package_lpa: Optional[float]
-    source_url: Optional[str]
+    total_students: Optional[int] = None
+    students_placed: Optional[int] = None
+    highest_package_lpa: Optional[float] = None
+    average_package_lpa: Optional[float] = None
+    source_url: Optional[str] = None
+    record_type: Optional[str] = None
+    package_distribution: Optional[Any] = None
+    companies_visited: Optional[int] = None
+    offers_made: Optional[int] = None
 
 
 @router.get("/placements", response_model=List[PlacementStats], summary="Placement statistics")

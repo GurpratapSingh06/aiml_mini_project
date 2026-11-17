@@ -27,7 +27,10 @@ def _get_reranker():
         try:
             from sentence_transformers import CrossEncoder
             logger.info("Loading cross-encoder model", model=settings.reranker_model)
-            _reranker_instance = CrossEncoder(settings.reranker_model)
+            try:
+                _reranker_instance = CrossEncoder(settings.reranker_model, local_files_only=True)
+            except Exception:
+                _reranker_instance = CrossEncoder(settings.reranker_model)
             logger.info("Cross-encoder loaded")
             return _reranker_instance
         except ImportError:

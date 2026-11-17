@@ -5,11 +5,13 @@ Core user-facing search and Q&A API.
 
 from __future__ import annotations
 
+import json
 import time
 import uuid
 from typing import List, Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
@@ -52,6 +54,7 @@ class SearchResult(BaseModel):
     cache_hit: bool
     limitations: Optional[str] = None
     suggested_queries: List[str] = []
+    diagnostics: Optional[Dict[str, Any]] = None
 
 
 class SearchSuggestion(BaseModel):
@@ -119,6 +122,7 @@ async def search(request: SearchRequest) -> SearchResult:
             cache_hit=result.get("cache_hit", False),
             limitations=result.get("limitations"),
             suggested_queries=result.get("suggested_queries", []),
+            diagnostics=result.get("diagnostics"),
         )
 
     except Exception as e:
@@ -148,13 +152,13 @@ async def get_suggestions(
     # Static suggestions for initial deployment — will become dynamic
     static_suggestions = [
         SearchSuggestion(suggestion="Who is the HOD of Computer Engineering?", category="faculty"),
-        SearchSuggestion(suggestion="What is the fee structure for 2024-25?", category="fees"),
-        SearchSuggestion(suggestion="Computer Engineering placement statistics 2024", category="placements"),
-        SearchSuggestion(suggestion="Academic calendar 2024-25", category="academics"),
-        SearchSuggestion(suggestion="Admission process for BE programs", category="admissions"),
-        SearchSuggestion(suggestion="Faculty list for AIML department", category="faculty"),
-        SearchSuggestion(suggestion="MITAOE NAAC accreditation grade", category="accreditation"),
-        SearchSuggestion(suggestion="Student support and grievance cell", category="student_support"),
+        SearchSuggestion(suggestion="What is the current academic year at MITAOE?", category="academics"),
+        SearchSuggestion(suggestion="Who is the Director of MITAOE?", category="leadership"),
+        SearchSuggestion(suggestion="Show the academic calendar for 2026-27", category="academics"),
+        SearchSuggestion(suggestion="Which departments are available at MITAOE?", category="departments"),
+        SearchSuggestion(suggestion="Who is the HOD of Information Technology?", category="faculty"),
+        SearchSuggestion(suggestion="Who is the HOD of Data Science?", category="faculty"),
+        SearchSuggestion(suggestion="Who is the HOD of AI and ML?", category="faculty"),
     ]
 
     if not q:
@@ -164,10 +168,55 @@ async def get_suggestions(
     return [s for s in static_suggestions if q_lower in s.suggestion.lower()][:5]
 
 
+@router.post("/stream", summary="Stream question-driven research progress events")
+async def stream_search(request: SearchRequest):
+    """
+    Stream live research stages and milestones via Server-Sent Events (SSE).
+    Emits real-time state transitions:
+    analyzing_question → searching_local_knowledge → discovering_sources →
+    fetching_pages → extracting_information → analyzing_evidence →
+    verifying_information → generating_answer → saving_to_history → completed.
+    """
+    from app.intelligence.answer_engine.pipeline import AnswerPipeline
+    pipeline = AnswerPipeline()
+
+    async def event_generator():
+        try:
+            async for event in pipeline.answer_stream(
+                query=request.query,
+                top_k=request.top_k,
+                academic_year_filter=request.academic_year,
+            ):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            logger.error("SSE stream error", error=str(e), exc_info=True)
+            err_event = {
+                "request_id": str(uuid.uuid4()),
+                "stage": "failed",
+                "message": f"Research process encountered an error: {str(e)}",
+                "status": "failed",
+            }
+            yield f"data: {json.dumps(err_event)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.get("/history", summary="Recent queries")
 async def get_query_history(
     limit: int = Query(10, ge=1, le=50),
 ) -> List[Dict[str, Any]]:
-    """Return recent anonymized query history."""
-    # Will query database in full implementation
-    return []
+    """Return recent query history from PostgreSQL."""
+    try:
+        from app.storage.history_store import get_recent_history
+        return await get_recent_history(limit=limit)
+    except Exception as e:
+        logger.warning("Failed to fetch query history", error=str(e))
+        return []

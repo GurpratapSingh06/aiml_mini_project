@@ -53,26 +53,23 @@ class TemporalParser:
         "obsolete", "withdrawn", "rescinded"
     ]
 
-    def __init__(self, reference_year: int = 2025):
+    def __init__(self, reference_year: int = 2026):
         self.reference_year = reference_year
 
     def parse_academic_year(self, text: str) -> Optional[str]:
         """
-        Normalize academic years into canonical '2024-25' format.
+        Normalize academic years into canonical '2026-27' format.
+        Handles '2026-27', '2026-2027', 'AY 2026-27', 'Academic Year 2026-2027'.
         """
         match = self.AY_REGEX.search(text)
         if match:
             start_yr, end_yr = match.groups()
             start = int(start_yr)
-            # Normalize end year (e.g. '2025' -> '25' or '25' -> '25')
+            # Normalize end year (e.g. '2027' -> '27' or '27' -> '27')
             if len(end_yr) == 4:
                 end = int(end_yr) % 100
             else:
                 end = int(end_yr)
-            
-            # Sanity check: end year should be start + 1
-            if end == (start + 1) % 100:
-                return f"{start}-{end:02d}"
             return f"{start}-{end:02d}"
         return None
 
@@ -83,7 +80,7 @@ class TemporalParser:
         document_metadata: Optional[Dict[str, Any]] = None,
     ) -> TemporalAssessment:
         """
-        Determine if the content is current, historical, or superseded.
+        Determine if the content is current (2026-27), historical, or superseded.
         """
         academic_year = self.parse_academic_year(text) or self.parse_academic_year(source_url)
         
@@ -103,18 +100,22 @@ class TemporalParser:
         if academic_year:
             try:
                 start_year = int(academic_year.split("-")[0])
-                if start_year >= self.reference_year:
+                if start_year == self.reference_year:
                     status = TemporalValidity.CURRENT
-                    confidence = 0.90
-                    notes = f"Academic year {academic_year} aligns with or succeeds current cycle."
+                    confidence = 0.95
+                    notes = f"Academic year {academic_year} is the current official academic year (2026-27)."
+                elif start_year > self.reference_year:
+                    status = TemporalValidity.UPCOMING
+                    confidence = 0.88
+                    notes = f"Academic year {academic_year} is upcoming."
                 elif start_year == self.reference_year - 1:
-                    status = TemporalValidity.CURRENT
-                    confidence = 0.82
-                    notes = f"Academic year {academic_year} is recent."
+                    status = TemporalValidity.HISTORICAL
+                    confidence = 0.85
+                    notes = f"Academic year {academic_year} is the immediately preceding academic year (2025-26)."
                 else:
                     status = TemporalValidity.HISTORICAL
-                    confidence = 0.88
-                    notes = f"Academic year {academic_year} is prior to current active cycle."
+                    confidence = 0.90
+                    notes = f"Academic year {academic_year} is historical."
             except Exception:
                 status = TemporalValidity.UNKNOWN
                 confidence = 0.50
@@ -126,12 +127,12 @@ class TemporalParser:
                 latest_year = max(years)
                 if latest_year >= self.reference_year:
                     status = TemporalValidity.CURRENT
-                    confidence = 0.75
-                    notes = f"Contains reference to year {latest_year}."
+                    confidence = 0.80
+                    notes = f"Contains reference to current active year {latest_year}."
                 else:
                     status = TemporalValidity.HISTORICAL
-                    confidence = 0.70
-                    notes = f"Latest year mentioned is {latest_year}."
+                    confidence = 0.75
+                    notes = f"Latest year mentioned is {latest_year} (historical)."
             else:
                 status = TemporalValidity.UNKNOWN
                 confidence = 0.40

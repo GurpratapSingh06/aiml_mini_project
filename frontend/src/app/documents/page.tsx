@@ -25,66 +25,78 @@ interface DocItem {
   summary: string;
 }
 
-const mockDocuments: DocItem[] = [
+const initialDocuments: DocItem[] = [
   {
     id: "doc-01",
-    title: "MITAOE Placement Statistics & Recruitment Highlights 2023-24",
-    category: "Placement Report",
-    source_url: "https://mitaoe.ac.in/placements/placement-report-2023-24.pdf",
-    academic_year: "2023-24",
-    page_count: 14,
+    title: "MITAOE Mandatory Disclosure 2026-27 (AICTE & DTE Statutory Compliance)",
+    category: "Statutory Disclosure",
+    source_url: "https://mitaoe.ac.in/assets/images/pdf/Mandatory-Disclosure-2026-27.pdf",
+    academic_year: "2026-27",
+    page_count: 1829,
     is_scanned: false,
     ocr_confidence: null,
     status: "indexed",
-    summary: "Comprehensive department-wise breakdown of student placement packages, median CTC, and recruiting partners.",
+    summary: "Comprehensive 1,829-page institutional disclosure covering governance, faculty rosters, programs, infrastructure, and NBA accreditation.",
   },
   {
     id: "doc-02",
-    title: "FRA Approved Fee Structure for B.Tech Programs 2024-25",
-    category: "Fee Structure",
-    source_url: "https://mitaoe.ac.in/admissions/fee-structure-2024-25.pdf",
-    academic_year: "2024-25",
+    title: "Institutional Academic Calendar 2026-27 Term 1 (UG & Honors)",
+    category: "Academic Calendar",
+    source_url: "https://mitaoe.ac.in/2026-2027-Term-I-UG-Calendar.html",
+    academic_year: "2026-27",
     page_count: 4,
-    is_scanned: true,
-    ocr_confidence: 0.94,
+    is_scanned: false,
+    ocr_confidence: null,
     status: "indexed",
-    summary: "Official Fees Regulating Authority approval for tuition fees, development fees, and category scholarship provisions.",
+    summary: "Term commencement (July 2026), instructional duration, continuous in-semester evaluation, mid-term, and end-semester examination dates.",
   },
   {
     id: "doc-03",
-    title: "Academic Calendar & Examination Schedule Semester I & II",
-    category: "Academic Calendar",
-    source_url: "https://mitaoe.ac.in/academics/academic-calendar-2024-25.pdf",
-    academic_year: "2024-25",
-    page_count: 6,
+    title: "MITAOE Information Brochure Academic Year 2026-27",
+    category: "Brochure",
+    source_url: "https://mitaoe.ac.in/assets/images/pdf/Information-Brochure-2026-27.pdf",
+    academic_year: "2026-27",
+    page_count: 36,
     is_scanned: false,
     ocr_confidence: null,
     status: "indexed",
-    summary: "Term commencement dates, mid-semester assessment schedules, project submission windows, and holiday schedule.",
+    summary: "Curriculum structure, department profiles, seat matrix, eligibility criteria, and academic policies for the 2026-27 intake.",
   },
   {
     id: "doc-04",
-    title: "NAAC Self-Study Report (SSR) Institutional Profile",
-    category: "Accreditation",
-    source_url: "https://mitaoe.ac.in/iqac/naac-ssr-cycle2.pdf",
-    academic_year: "2022-23",
-    page_count: 182,
+    title: "MITAOE Examination Time Table AY 2026-2027",
+    category: "Examination",
+    source_url: "https://mitaoe.ac.in/academic-year-2026-2027.php",
+    academic_year: "2026-27",
+    page_count: 8,
     is_scanned: false,
     ocr_confidence: null,
     status: "indexed",
-    summary: "Institutional accreditation documentation covering teaching-learning quality, governance, research output, and infrastructure.",
+    summary: "In-Semester Evaluation and End-Semester Assessment timetable for B.Tech programs across engineering disciplines.",
   },
   {
     id: "doc-05",
-    title: "Office Order: Academic Council & Anti-Ragging Committee",
-    category: "Circular",
-    source_url: "https://mitaoe.ac.in/circulars/office-order-committees-2024.pdf",
-    academic_year: "2024-25",
-    page_count: 2,
+    title: "Academic Calendar 2025-2026 Term I (Archived)",
+    category: "Academic Calendar",
+    source_url: "https://mitaoe.ac.in/assets/images/pdf/Academic-Calendar-2025-2026-Term-I.pdf",
+    academic_year: "2025-26",
+    page_count: 4,
     is_scanned: true,
-    ocr_confidence: 0.91,
+    ocr_confidence: 0.96,
     status: "indexed",
-    summary: "Official notifications detailing constituted academic committee members, ombudsperson, and disciplinary protocols.",
+    summary: "Historical instructional schedule and examination dates preceding the active 2026-27 academic year.",
+  },
+  {
+    id: "doc-06",
+    title: "Academic Calendar 2024-25 Term I (SY to B.Tech) (Archived)",
+    category: "Academic Calendar",
+    source_url: "https://mitaoe.ac.in/assets/images/pdf/Academic-Calendar-2024-25.pdf",
+    academic_year: "2024-25",
+    page_count: 4,
+    is_scanned: true,
+    ocr_confidence: 0.93,
+    status: "indexed",
+    summary: "Historical academic term schedule for 2024-25 archived in institutional repository.",
   },
 ];
 
@@ -93,9 +105,9 @@ export default function DocumentsPage() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [activePreview, setActivePreview] = useState<DocItem | null>(null);
 
-  const categories = ["All", "Placement Report", "Fee Structure", "Academic Calendar", "Accreditation", "Circular"];
+  const categories = ["All", "Statutory Disclosure", "Academic Calendar", "Brochure", "Examination", "Accreditation"];
 
-  const filteredDocs = mockDocuments.filter((doc) => {
+  const filteredDocs = initialDocuments.filter((doc) => {
     const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           doc.summary.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === "All" || doc.category === selectedCategory;

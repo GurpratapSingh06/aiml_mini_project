@@ -32,6 +32,7 @@ class RetrievalResult:
     bm25_score: float = 0.0
     semantic_score: float = 0.0
     rrf_score: float = 0.0
+    academic_year: Optional[str] = None
 
 
 class RetrievalPipeline:
@@ -59,11 +60,32 @@ class RetrievalPipeline:
         self._initialized = False
 
     def initialize(self) -> None:
-        """Load persisted indexes from disk."""
-        index_dir = Path(settings.faiss_index_path)
+        """Load persisted indexes from disk with integrity checks and fallback recovery."""
+        index_dir = settings.faiss_index_dir
+        index_dir.mkdir(parents=True, exist_ok=True)
+
+        # Fallback check: if primary index dir is empty, copy from known alternate location
+        bm25_path = index_dir / "bm25.pkl"
+        lookup_path = index_dir / "chunk_lookup.pkl"
+        faiss_path = index_dir / "faiss.index"
+
+        if not (bm25_path.exists() and lookup_path.exists() and faiss_path.exists()):
+            # Check project base data/indexes or backend/data/indexes
+            base_dir = Path(__file__).resolve().parents[3]
+            candidates = [
+                base_dir / "data" / "indexes",
+                base_dir / "backend" / "data" / "indexes",
+            ]
+            import shutil
+            for cand in candidates:
+                if cand != index_dir and (cand / "bm25.pkl").exists() and (cand / "chunk_lookup.pkl").exists():
+                    logger.info("Restoring missing indexes from fallback location", fallback_dir=str(cand))
+                    for f in cand.glob("*"):
+                        if f.is_file():
+                            shutil.copy2(f, index_dir / f.name)
+                    break
 
         # Load BM25
-        bm25_path = index_dir / "bm25.pkl"
         if self.bm25.load(str(bm25_path)):
             logger.info("BM25 index loaded from disk")
 
@@ -72,12 +94,20 @@ class RetrievalPipeline:
             logger.info("FAISS index loaded from disk")
 
         # Load chunk lookup
-        lookup_path = index_dir / "chunk_lookup.pkl"
         if lookup_path.exists():
             import pickle
             with open(lookup_path, "rb") as f:
                 self._chunk_lookup = pickle.load(f)
             logger.info("Chunk lookup loaded", chunks=len(self._chunk_lookup))
+
+        # Validate index integrity
+        if self.faiss.num_vectors != len(self._chunk_lookup) or self.bm25.num_docs != len(self._chunk_lookup):
+            logger.warning(
+                "Index count discrepancy detected",
+                faiss_vectors=self.faiss.num_vectors,
+                bm25_docs=self.bm25.num_docs,
+                lookup_chunks=len(self._chunk_lookup),
+            )
 
         self._initialized = True
         logger.info(
@@ -86,22 +116,73 @@ class RetrievalPipeline:
             faiss_ready=self.faiss.is_ready,
             bm25_docs=self.bm25.num_docs,
             faiss_vectors=self.faiss.num_vectors,
+            index_dir=str(index_dir),
         )
+        self._write_manifest(index_dir)
+
+    def _write_manifest(self, index_dir: Path) -> None:
+        """Write index manifest metadata recording version and counts."""
+        import json
+        from datetime import datetime, timezone
+        manifest = {
+            "index_version": "2.0.0",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "embedding_model": settings.embedding_model,
+            "dimension": self.embedder.dimension,
+            "faiss_vectors": self.faiss.num_vectors,
+            "bm25_documents": self.bm25.num_docs,
+            "chunk_lookup_count": len(self._chunk_lookup),
+            "status": "HEALTHY" if (self.faiss.is_ready and self.bm25.is_ready) else "DEGRADED",
+        }
+        manifest_path = index_dir / "index_manifest.json"
+        try:
+            temp_manifest = manifest_path.with_suffix(".tmp")
+            with open(temp_manifest, "w", encoding="utf-8") as f:
+                json.dump(manifest, f, indent=2)
+            temp_manifest.replace(manifest_path)
+        except Exception as e:
+            logger.debug("Failed to write index manifest", error=str(e))
 
     def _save_indexes(self) -> None:
-        """Persist all indexes to disk."""
+        """Persist all indexes to disk using atomic writes to avoid corrupted states."""
         import pickle
+        import shutil
 
-        index_dir = Path(settings.faiss_index_path)
+        index_dir = settings.faiss_index_dir
         index_dir.mkdir(parents=True, exist_ok=True)
 
-        self.bm25.save(str(index_dir / "bm25.pkl"))
+        # Atomic BM25 save
+        bm25_path = index_dir / "bm25.pkl"
+        temp_bm25 = index_dir / "bm25.pkl.tmp"
+        self.bm25.save(str(temp_bm25))
+        if temp_bm25.exists():
+            temp_bm25.replace(bm25_path)
+
+        # FAISS save
         self.faiss.save(str(index_dir))
 
-        with open(index_dir / "chunk_lookup.pkl", "wb") as f:
+        # Atomic chunk lookup save
+        lookup_path = index_dir / "chunk_lookup.pkl"
+        temp_lookup = index_dir / "chunk_lookup.pkl.tmp"
+        with open(temp_lookup, "wb") as f:
             pickle.dump(self._chunk_lookup, f)
+        temp_lookup.replace(lookup_path)
 
-        logger.info("All indexes saved to disk")
+        self._write_manifest(index_dir)
+
+        # Mirror to backend/data/indexes if distinct
+        base_dir = Path(__file__).resolve().parents[3]
+        backend_index_dir = base_dir / "backend" / "data" / "indexes"
+        if backend_index_dir != index_dir:
+            try:
+                backend_index_dir.mkdir(parents=True, exist_ok=True)
+                for f in index_dir.glob("*"):
+                    if f.is_file() and not f.name.endswith(".tmp"):
+                        shutil.copy2(f, backend_index_dir / f.name)
+            except Exception as e:
+                logger.debug("Mirror copy to backend/data/indexes failed", error=str(e))
+
+        logger.info("All indexes saved atomically to disk", dir=str(index_dir), chunks=len(self._chunk_lookup))
 
     def add_chunks(self, chunks: List[dict]) -> None:
         """
@@ -121,6 +202,7 @@ class RetrievalPipeline:
                 "source_url": chunk.get("source_url", ""),
                 "source_title": chunk.get("source_title", ""),
                 "page_number": chunk.get("page_number"),
+                "academic_year": chunk.get("academic_year"),
             }
 
         # Rebuild BM25 (BM25 doesn't support incremental updates efficiently)
@@ -164,6 +246,7 @@ class RetrievalPipeline:
                 "source_url": chunk.get("source_url", ""),
                 "source_title": chunk.get("source_title", ""),
                 "page_number": chunk.get("page_number"),
+                "academic_year": chunk.get("academic_year"),
             }
 
         # Build BM25
@@ -269,6 +352,7 @@ class RetrievalPipeline:
                 bm25_score=fr.bm25_score,
                 semantic_score=fr.semantic_score,
                 rrf_score=fr.rrf_score,
+                academic_year=meta.get("academic_year"),
             ))
 
         # Optional reranking

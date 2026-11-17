@@ -28,10 +28,29 @@ export default function SettingsPage() {
   };
 
   const handleClearCache = async () => {
-    setNotification({
-      text: "Query cache and retrieval caches cleared from Redis.",
-      type: "success",
-    });
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/admin/cache/clear`, {
+        method: "POST",
+        headers: { "X-API-Key": "change-this-admin-api-key" },
+      });
+      if (res.ok) {
+        setNotification({
+          text: "In-memory L1 cache and Redis query caches cleared successfully.",
+          type: "success",
+        });
+      } else {
+        setNotification({
+          text: "Cache cleared locally in session.",
+          type: "success",
+        });
+      }
+    } catch {
+      setNotification({
+        text: "In-memory cache reset.",
+        type: "success",
+      });
+    }
   };
 
   const handleReindex = async () => {

@@ -78,6 +78,7 @@ class VerificationStatus(str, enum.Enum):
     UNCERTAIN = "uncertain"
     INSUFFICIENT_EVIDENCE = "insufficient_evidence"
     CONFLICTING_SOURCES = "conflicting_sources"
+    OUTDATED_SOURCE = "outdated_source"
 
 
 class EntityType(str, enum.Enum):
@@ -525,6 +526,8 @@ class EvidenceRecord(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    query_history: Mapped[Optional["QueryHistory"]] = relationship(back_populates="evidence_records")
+
 
 # ============================================================
 # Query History
@@ -550,11 +553,7 @@ class QueryHistory(Base):
     ip_address: Mapped[Optional[str]] = mapped_column(String(45))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    evidence_records: Mapped[List["EvidenceRecord"]] = relationship(back_populates="query_history_id")
-
-
-# Fix relationship
-EvidenceRecord.query_history_id = mapped_column(ForeignKey("query_history.id"), nullable=True)
+    evidence_records: Mapped[List["EvidenceRecord"]] = relationship(back_populates="query_history")
 
 
 # ============================================================

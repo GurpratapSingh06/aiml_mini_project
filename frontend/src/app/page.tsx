@@ -26,10 +26,10 @@ export default function HomePage() {
 
   const sampleQueries = [
     { text: "Who is the HOD of Computer Engineering?", label: "Faculty & HOD" },
-    { text: "What are the latest Computer Engineering placement statistics?", label: "Placements" },
-    { text: "What is the fee structure for 2024-25?", label: "Fee Structure" },
-    { text: "Academic calendar for current semester", label: "Academics" },
-    { text: "MITAOE NAAC grade and accreditation", label: "Accreditation" },
+    { text: "What is the current academic year at MITAOE?", label: "AY 2026-27" },
+    { text: "Show the academic calendar for 2026-27", label: "Academic Calendar" },
+    { text: "Who is the Director of MITAOE?", label: "Leadership" },
+    { text: "Which departments are available at MITAOE?", label: "Departments" },
   ];
 
   return (

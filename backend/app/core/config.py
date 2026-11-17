@@ -40,6 +40,7 @@ class Settings(BaseSettings):
 
     # ---- Redis ----------------------------------------------
     redis_url: str = "redis://localhost:6379/0"
+    redis_enabled: bool = False
     cache_default_ttl: int = 3600
     cache_query_ttl: int = 1800
     cache_embedding_ttl: int = 86400
@@ -67,7 +68,8 @@ class Settings(BaseSettings):
     document_max_size_mb: int = 50
     document_ocr_engine: str = "tesseract"
     document_ocr_language: str = "eng"
-    document_tesseract_cmd: str = "tesseract"
+    document_tesseract_cmd: Optional[str] = None
+    tesseract_cmd: Optional[str] = None
     document_paddle_ocr: bool = False
 
     # ---- AI / Embeddings ------------------------------------
@@ -114,15 +116,21 @@ class Settings(BaseSettings):
 
     @property
     def document_storage_dir(self) -> Path:
-        path = Path(self.document_storage_path)
-        path.mkdir(parents=True, exist_ok=True)
-        return path
+        p = Path(self.document_storage_path)
+        if not p.is_absolute():
+            base_dir = Path(__file__).resolve().parents[3]
+            p = (base_dir / p).resolve()
+        p.mkdir(parents=True, exist_ok=True)
+        return p
 
     @property
     def faiss_index_dir(self) -> Path:
-        path = Path(self.faiss_index_path)
-        path.mkdir(parents=True, exist_ok=True)
-        return path
+        p = Path(self.faiss_index_path)
+        if not p.is_absolute():
+            base_dir = Path(__file__).resolve().parents[3]
+            p = (base_dir / p).resolve()
+        p.mkdir(parents=True, exist_ok=True)
+        return p
 
     @property
     def is_development(self) -> bool:

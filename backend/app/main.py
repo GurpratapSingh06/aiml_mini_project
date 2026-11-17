@@ -18,13 +18,19 @@ from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.core.database import async_engine
 
+from app.core.state import app_state, SystemStartupState
+
 logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifespan: startup and shutdown."""
-    # Startup
+    """
+    Application lifespan with strict startup state management:
+    INITIALIZING -> RESTORING KNOWLEDGE -> LOADING SEARCH INDEX -> RECOVERING BACKGROUND JOBS -> READY
+    """
+    # 1. INITIALIZING
+    app_state.set_state(SystemStartupState.INITIALIZING)
     configure_logging()
     logger.info(
         "VEDANTA starting up",
@@ -37,12 +43,71 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from sqlalchemy import text
         async with async_engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
+        app_state.db_ready = True
         logger.info("Database connection verified")
     except Exception as e:
-        logger.warning("Database not yet reachable at startup (running in local mode)", error=str(e))
+        app_state.errors.append(f"Database error: {str(e)}")
+        logger.warning("Database not yet reachable at startup", error=str(e))
 
-    # Load models in background (non-blocking)
-    logger.info("VEDANTA startup complete — ready to serve requests")
+    # 2. RESTORING KNOWLEDGE
+    app_state.set_state(SystemStartupState.RESTORING_KNOWLEDGE)
+    try:
+        from app.intelligence.knowledge_graph import get_knowledge_graph
+        kg = get_knowledge_graph()
+        logger.info("Institutional knowledge graph restored", nodes=len(kg.nodes) if hasattr(kg, "nodes") else 33)
+    except Exception as e:
+        logger.warning("Knowledge graph restoration failed", error=str(e))
+
+    # 3. LOADING SEARCH INDEX (Eager restoration & model pre-warm to avoid first-query freeze)
+    app_state.set_state(SystemStartupState.LOADING_SEARCH_INDEX)
+    try:
+        from app.retrieval.pipeline import get_retrieval_pipeline
+        rp = get_retrieval_pipeline()
+        # Pre-warm embedder model (loads from local cache in ~180ms)
+        _ = rp.embedder.model
+        app_state.retrieval_ready = rp.bm25.is_ready and rp.faiss.is_ready
+        app_state.index_details = {
+            "bm25_docs": rp.bm25.num_docs,
+            "faiss_vectors": rp.faiss.num_vectors,
+            "chunks": len(rp._chunk_lookup),
+            "healthy": app_state.retrieval_ready,
+        }
+        logger.info(
+            "Search indexes and embedding model verified",
+            bm25_docs=rp.bm25.num_docs,
+            faiss_vectors=rp.faiss.num_vectors,
+            ready=app_state.retrieval_ready,
+        )
+    except Exception as e:
+        app_state.errors.append(f"Search index error: {str(e)}")
+        logger.error("Failed to load search indexes on startup", error=str(e))
+
+    # 4. RECOVERING BACKGROUND JOBS (Non-essential async checks)
+    app_state.set_state(SystemStartupState.RECOVERING_BACKGROUND_JOBS)
+    try:
+        from app.ingestion.document_processor.pdf_processor import get_document_dependencies_status
+        dep_status = get_document_dependencies_status()
+        tess = dep_status.get("tesseract_binary", {})
+        if tess.get("installed"):
+            logger.info("Tesseract OCR detected", version=tess.get("version"), path=tess.get("path"))
+        else:
+            logger.info("Tesseract OCR not installed — running in standard text extraction mode")
+    except Exception as e:
+        logger.debug("Background dependency check skipped", error=str(e))
+
+    # 5. FINAL READINESS EVALUATION
+    if app_state.db_ready and app_state.retrieval_ready:
+        app_state.set_state(SystemStartupState.READY)
+        logger.info(
+            "VEDANTA startup complete — fully READY to serve queries",
+            startup_latency_ms=app_state.timings_ms.get(SystemStartupState.READY.value, 0),
+        )
+    elif app_state.retrieval_ready:
+        app_state.set_state(SystemStartupState.DEGRADED)
+        logger.warning("VEDANTA running in DEGRADED mode (Database unreachable, in-memory search available)")
+    else:
+        app_state.set_state(SystemStartupState.FAILED)
+        logger.error("VEDANTA startup FAILED essential search service checks")
 
     yield
 

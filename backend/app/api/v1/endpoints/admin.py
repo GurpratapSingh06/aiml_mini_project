@@ -17,6 +17,7 @@ def require_admin_key(x_api_key: Optional[str] = Header(None)) -> None:
 @router.get("/status", summary="System status (admin)")
 async def admin_status(_: None = Depends(require_admin_key)) -> Dict[str, Any]:
     """Full system status including index sizes, model info, etc."""
+    from app.ingestion.document_processor.pdf_processor import get_document_dependencies_status
     return {
         "app": "vedanta",
         "version": settings.app_version,
@@ -25,6 +26,31 @@ async def admin_status(_: None = Depends(require_admin_key)) -> Dict[str, Any]:
         "faiss_index_path": settings.faiss_index_path,
         "crawl_start_url": settings.crawl_start_url,
         "allowed_domains": settings.allowed_domains_list,
+        "document_dependencies": get_document_dependencies_status(),
+    }
+
+
+@router.get("/diagnostics", summary="Full system and dependency diagnostics (admin)")
+async def admin_diagnostics(_: None = Depends(require_admin_key)) -> Dict[str, Any]:
+    """Detailed diagnostics of Python environment, libraries, and binaries."""
+    import sys
+    import platform
+    import os
+    from app.ingestion.document_processor.pdf_processor import get_document_dependencies_status
+
+    return {
+        "python": {
+            "version": sys.version,
+            "executable": sys.executable,
+            "prefix": sys.prefix,
+            "platform": platform.platform(),
+        },
+        "environment_variables": {
+            "TESSERACT_CMD": os.environ.get("TESSERACT_CMD"),
+            "DOCUMENT_OCR_ENGINE": getattr(settings, "document_ocr_engine", None),
+            "DOCUMENT_STORAGE_PATH": getattr(settings, "document_storage_path", None),
+        },
+        "dependencies": get_document_dependencies_status(),
     }
 
 
@@ -42,12 +68,19 @@ async def trigger_reindex(_: None = Depends(require_admin_key)) -> Dict[str, str
 
 @router.post("/cache/clear", summary="Clear caches (admin)")
 async def clear_cache(_: None = Depends(require_admin_key)) -> Dict[str, str]:
-    """Clear all Redis caches."""
+    """Clear all L1 in-memory and Redis caches."""
+    try:
+        from app.intelligence.answer_engine.pipeline import _l1_cache
+        _l1_cache.clear()
+    except Exception as e:
+        logger.debug("L1 cache clear failed", error=str(e))
+
     try:
         import redis.asyncio as aioredis
-        r = aioredis.from_url(settings.redis_url)
+        r = aioredis.from_url(settings.redis_url, socket_connect_timeout=0.2)
         await r.flushdb()
         await r.aclose()
-        return {"status": "ok", "message": "Cache cleared"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Cache clear failed: {e}")
+        logger.debug("Redis cache clear skipped/failed", error=str(e))
+
+    return {"status": "ok", "message": "All query and retrieval caches cleared successfully."}

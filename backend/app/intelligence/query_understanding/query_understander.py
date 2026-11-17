@@ -20,14 +20,16 @@ ABBREVIATION_DICT = {
     "AIML": "Artificial Intelligence and Machine Learning",
     "AI&ML": "Artificial Intelligence and Machine Learning",
     "IT": "Information Technology",
+    "SE": "Software Engineering",
+    "DS": "Data Science",
     "ENTC": "Electronics and Telecommunication Engineering",
     "E&TC": "Electronics and Telecommunication Engineering",
     "ETC": "Electronics and Telecommunication Engineering",
     "MECH": "Mechanical Engineering",
     "ME": "Mechanical Engineering",
     "CIVIL": "Civil Engineering",
+    "CHEM": "Chemical Engineering",
     "HOD": "Head of Department",
-    "HoD": "Head of Department",
     "MIT": "MIT Academy of Engineering",
     "MITAOE": "MIT Academy of Engineering",
     "BE": "Bachelor of Engineering",
@@ -54,7 +56,7 @@ ABBREVIATION_DICT = {
 _STATISTICAL_KEYWORDS = {
     "how many", "count", "total", "number of", "percentage", "percent",
     "average", "mean", "median", "highest", "lowest", "minimum", "maximum",
-    "lpa", "package", "salary", "fee", "fees", "cost", "statistics", "data",
+    "lpa", "package", "salary", "fee", "fees", "cost", "statistics",
     "placed", "placement",
 }
 
@@ -68,6 +70,10 @@ _ENTITY_LOOKUP_KEYWORDS = {
     "who is", "who are", "name of", "contact", "email", "phone",
     "head of", "hod", "dean", "director", "principal", "faculty",
     "professor", "dr.", "prof.", "committee", "council",
+    "where can i find", "where is", "department page", "which department",
+    "which departments", "what departments", "available departments",
+    "who heads", "who leads", "heads the", "leads the", "leading",
+    "downloads", "download",
 }
 
 _COMPARISON_KEYWORDS = {
@@ -96,6 +102,12 @@ class QueryContext:
     is_comparison: bool = False
     expanded_query: str = ""
     sub_queries: List[str] = field(default_factory=list)
+    # Semantic extraction extensions
+    requested_intent_category: str = "general_factual"
+    target_role: Optional[str] = None
+    requested_attributes: List[str] = field(default_factory=list)
+    required_fields: List[str] = field(default_factory=list)
+    expected_answer_type: str = "text"
 
 
 def normalize_query(text: str) -> str:
@@ -119,19 +131,57 @@ def normalize_query(text: str) -> str:
 def expand_abbreviations(text: str, abbrev_dict: dict = None) -> str:
     """
     Expand abbreviations while preserving the original acronym for search recall.
-    Prevents over-expansion of common English pronouns (me, it, be).
+    Prevents over-expansion of common English pronouns (me, it, be) while reliably
+    handling departmental context (e.g. 'it department', 'who heads the it', 'HOD of CE').
     """
     abbrev_dict = abbrev_dict or ABBREVIATION_DICT
     result = text
 
-    # Words that must strictly match uppercase to avoid mangling English pronouns
-    case_sensitive_acronyms = {"ME", "IT", "BE", "AY"}
+    # Contextual patterns for ambiguous acronyms (works even if text is lowercase)
+    context_patterns = {
+        "IT": [
+            r"\bIT\b",
+            r"\bit\s+(?:dept|department|branch|school|engineering)\b",
+            r"\b(?:heads?|leads?|hod of|head of)\s+(?:the\s+)?it\b",
+        ],
+        "CE": [
+            r"\bCE\b",
+            r"\bce\s+(?:dept|department|branch|school|engineering)\b",
+            r"\b(?:heads?|leads?|hod of|head of)\s+(?:the\s+)?ce\b",
+        ],
+        "SE": [
+            r"\bSE\b",
+            r"\bse\s+(?:dept|department|branch|school|engineering)\b",
+            r"\b(?:heads?|leads?|hod of|head of)\s+(?:the\s+)?se\b",
+        ],
+        "DS": [
+            r"\bDS\b",
+            r"\bds\s+(?:dept|department|branch|school|engineering)\b",
+            r"\b(?:heads?|leads?|hod of|head of)\s+(?:the\s+)?ds\b",
+        ],
+        "ME": [
+            r"\bME\b",
+            r"\bme\s+(?:dept|department|branch|school|engineering)\b",
+        ],
+        "BE": [
+            r"\bBE\b",
+            r"\bbe\s+(?:degree|admission|students?|syllabus|curriculum)\b",
+        ],
+        "AY": [
+            r"\bAY\b",
+            r"\bay\s+(?:20\d{2})\b",
+        ],
+    }
 
     for abbrev, expansion in abbrev_dict.items():
-        if abbrev in case_sensitive_acronyms:
-            pattern = r"\b" + re.escape(abbrev) + r"\b"
-            # Append expansion alongside acronym: e.g. "ME Mechanical Engineering"
-            result = re.sub(pattern, lambda m: f"{m.group(0)} {expansion}", result)
+        if expansion.lower() in result.lower():
+            continue
+        if abbrev in context_patterns:
+            for pat in context_patterns[abbrev]:
+                # If pattern matches, expand
+                if re.search(pat, result, flags=0 if r"\b" + abbrev + r"\b" == pat else re.IGNORECASE):
+                    result = re.sub(pat, lambda m: f"{m.group(0)} {expansion}", result, count=1, flags=0 if r"\b" + abbrev + r"\b" == pat else re.IGNORECASE)
+                    break
         else:
             pattern = r"\b" + re.escape(abbrev) + r"\b"
             result = re.sub(pattern, lambda m: f"{m.group(0)} {expansion}", result, flags=re.IGNORECASE)
@@ -161,42 +211,68 @@ def _extract_academic_years(text: str) -> List[str]:
 
 
 def _extract_departments(text: str) -> List[str]:
-    """Extract department names from text."""
-    dept_patterns = [
-        r"computer\s+engineering",
-        r"computer\s+science\s+and\s+engineering",
-        r"artificial\s+intelligence\s+and\s+machine\s+learning",
-        r"information\s+technology",
-        r"electronics\s+and\s+telecommunication",
-        r"mechanical\s+engineering",
-        r"civil\s+engineering",
-        r"first\s+year",
+    """Extract canonical department names from text, giving precedence to specialized sub-branches."""
+    dept_mappings = [
+        (r"computer\s+engineering\s*\(software\s+engineering\)|software\s+engineering|\bse\b", "Software Engineering"),
+        (r"data\s+science|\bds\b", "Data Science"),
+        (r"artificial\s+intelligence\s+(?:and|&)\s+machine\s+learning|ai\s*(?:and|&|/)\s*ml|\baiml\b", "Artificial Intelligence and Machine Learning"),
+        (r"electronics\s+(?:and|&)\s+telecommunication|\bentc\b|\betc\b", "Electronics and Telecommunication Engineering"),
+        (r"electronics\s+(?:and|&)\s+computer", "Electronics and Computer Engineering"),
+        (r"information\s+technology|\bit\b", "Information Technology"),
+        (r"computer\s+(?:science\s+(?:and|&)\s+)?engineering|\bcomp\b|\bce\b|\bcse\b", "Computer Engineering"),
+        (r"mechanical\s+engineering|\bmech\b", "Mechanical Engineering"),
+        (r"civil\s+engineering|\bcivil\b", "Civil Engineering"),
+        (r"chemical\s+engineering|\bchem\b", "Chemical Engineering"),
+        (r"humanities\s+(?:and|&)\s+engineering\s+sciences", "Humanities and Engineering Sciences"),
+        (r"school\s+of\s+design|\bdesign\b", "School of Design"),
     ]
     found = []
-    for pattern in dept_patterns:
-        if re.search(pattern, text, re.IGNORECASE):
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                found.append(match.group(0).title())
+    text_lower = text.lower()
+    for pattern, canonical in dept_mappings:
+        if re.search(pattern, text_lower):
+            if canonical not in found:
+                found.append(canonical)
     return found
 
 
+def _has_kw(text: str, keywords) -> bool:
+    """Match keyword using whole-word boundary check to prevent substring collisions (e.g. 'lpa' in 'kalpana')."""
+    for kw in keywords:
+        if re.search(r"\b" + re.escape(kw) + r"\b", text, re.IGNORECASE):
+            return True
+    return False
+
+
 def _classify_intent(query_lower: str) -> str:
-    """Classify query intent using keyword rules."""
-    # Check for comparison first (more specific)
-    if any(kw in query_lower for kw in _COMPARISON_KEYWORDS):
+    """Classify query intent using robust keyword rules with word-boundary isolation."""
+    # 1. Comparison & ranking
+    if _has_kw(query_lower, _COMPARISON_KEYWORDS) or \
+       any(kw in query_lower for kw in ["which department has the highest", "which department has highest", "highest average package", "highest average"]):
         return "comparison"
 
-    # Statistical queries
-    if any(kw in query_lower for kw in _STATISTICAL_KEYWORDS):
-        return "statistical"
+    # 2. Specific calendar and academic year temporal queries
+    if _has_kw(query_lower, ["calendar", "timetable", "time table", "schedule", "term i", "term 1", "term 2", "term ii", "difference between two academic years"]):
+        return "temporal"
 
-    # Entity lookup
-    if any(kw in query_lower for kw in _ENTITY_LOOKUP_KEYWORDS):
+    # 3. Entity lookup (person, faculty, leadership, HOD, who is) — checked before generic statistical terms
+    if _has_kw(query_lower, _ENTITY_LOOKUP_KEYWORDS) or \
+       any(kw in query_lower for kw in ["who is", "who was", "previous hod", "former hod", "earlier hod", "who was the previous"]):
         return "entity_lookup"
 
-    # Temporal
-    if any(kw in query_lower for kw in _TEMPORAL_KEYWORDS):
+    # 4. Placement and salary statistics
+    if _has_kw(query_lower, ["placement", "package", "salary", "lpa", "ctc", "placed", "highest package", "average package", "placement statistics"]):
+        return "statistical"
+
+    # 5. Fee inquiries
+    if _has_kw(query_lower, ["fee", "fees", "fee structure", "tuition"]):
+        return "statistical"
+
+    # 6. General statistical
+    if _has_kw(query_lower, _STATISTICAL_KEYWORDS):
+        return "statistical"
+
+    # 7. General temporal
+    if _has_kw(query_lower, _TEMPORAL_KEYWORDS):
         return "temporal"
 
     return "factual"
@@ -219,6 +295,163 @@ def _decompose_query(query: str) -> List[str]:
         sub_queries = new_parts
 
     return [q.strip() for q in sub_queries if q.strip()] if len(sub_queries) > 1 else []
+
+
+def _analyze_query_semantics(
+    raw_query: str,
+    normalized: str,
+    intent: str,
+    departments: List[str],
+    entities: List[ExtractedEntity],
+) -> tuple[str, Optional[str], List[str], List[str], str]:
+    """
+    Extracts the semantic intent category, target role, requested attributes,
+    required fields (for completeness validation), and expected answer type.
+    """
+    q_lower = normalized.lower()
+
+    # 1. Vision and Mission
+    has_vision = "vision" in q_lower
+    has_mission = "mission" in q_lower
+    if has_vision and has_mission:
+        return (
+            "vision_and_mission",
+            None,
+            ["vision", "mission"],
+            ["vision_statement", "mission_statement"],
+            "structured_sections",
+        )
+    elif has_vision:
+        return (
+            "institutional_vision",
+            None,
+            ["vision"],
+            ["vision_statement"],
+            "section_text",
+        )
+    elif has_mission:
+        return (
+            "institutional_mission",
+            None,
+            ["mission"],
+            ["mission_statement"],
+            "section_text",
+        )
+
+    # 2. Institutional Role Holder (e.g. "Who is the [role]?", "Who heads [department]?", "Who is the Chairman?")
+    is_who_question = bool(re.search(r"\b(who\s+is|who\s+are|who\s+was|who\s+heads|who\s+leads|name\s+of\s+the|which\s+person)\b", q_lower))
+
+    role_patterns = [
+        (r"\b(director|principal|officiating\s+director)\b", "Director"),
+        (r"\b(vice[\s\-]+chancellor|vc)\b", "Vice Chancellor"),
+        (r"\b(chairman|chairperson)\b", "Chairman"),
+        (r"\b(hod|head\s+of\s+department|head\s+of\s+the\s+department)\b", "Head of Department"),
+        (r"\b(dean\s+academics?|dean\s+of\s+academics?)\b", "Dean Academics"),
+        (r"\b(dean\s+student\s+affairs?)\b", "Dean Student Affairs"),
+        (r"\b(dean\s+rd|dean\s+research)\b", "Dean Research"),
+        (r"\b(dean\s+quality(?:\s+assurance)?)\b", "Dean Quality Assurance"),
+        (r"\b(dean\s+branding(?:\s+and\s+communication)?)\b", "Dean Branding & Communication"),
+        (r"\b(dean\s+of\s+[a-z]+|dean\s+[a-z]+)\b", None),  # Dynamically extracted
+        (r"\b(dean)\b", "Dean"),
+        (r"\b(registrar)\b", "Registrar"),
+        (r"\b(trustee|treasurer)\b", "Trustee"),
+        (r"\b(executive\s+president|president)\b", "President"),
+        (r"\b(chief[\s\-]+financial[\s\-]+officer|cfo)\b", "Chief Financial Officer"),
+        (r"\b(chief[\s\-]+executive[\s\-]+officer|ceo)\b", "Chief Executive Officer"),
+        (r"\b(training\s+and\s+placement\s+officer|tpo)\b", "Training & Placement Officer"),
+        (r"\b(controller\s+of\s+examinations?|coe)\b", "Controller of Examinations"),
+    ]
+
+    target_role = None
+    for pattern, role_name in role_patterns:
+        m = re.search(pattern, q_lower)
+        if m:
+            if role_name is None:
+                # Capitalize extracted role phrase e.g. "Dean of Aeronautics"
+                target_role = " ".join(w.capitalize() for w in m.group(0).split())
+            else:
+                target_role = role_name
+            break
+
+    # If asking "who heads [department]" without explicit HOD word
+    if is_who_question and not target_role and (departments or "department" in q_lower or "school" in q_lower):
+        if re.search(r"\b(who\s+heads?|who\s+leads?)\b", q_lower):
+            target_role = "Head of Department"
+
+    if is_who_question and target_role:
+        return (
+            "role_holder",
+            target_role,
+            ["person_name", "role", "department", "source"],
+            ["person_name"],  # Essential required field: CANNOT be verified without person name!
+            "person_name",
+        )
+
+    # 3. Faculty Profile / Attributes (asking about a specific person)
+    has_person = any(e.entity_type == "person" for e in entities)
+    if has_person or re.search(r"\bwho\s+is\s+(?:dr|prof|mr|mrs|ms)?\.?\s*[a-z]+", q_lower):
+        req_attrs = ["person_name", "designation", "department"]
+        if any(w in q_lower for w in ["qualification", "degree", "phd"]):
+            req_attrs.append("qualification")
+        if any(w in q_lower for w in ["email", "contact", "mail"]):
+            req_attrs.append("email")
+        if any(w in q_lower for w in ["research", "publication", "paper", "interest"]):
+            req_attrs.append("research")
+        return (
+            "faculty_attribute",
+            None,
+            req_attrs,
+            ["person_name", "designation"],
+            "person_profile",
+        )
+
+    # 4. Fee Structure
+    if any(w in q_lower for w in ["fee", "fees", "tuition", "cost", "deposit", "fra"]):
+        return (
+            "fee_structure",
+            None,
+            ["category", "tuition_fee", "total_fee", "academic_year"],
+            ["total_fee", "academic_year"],
+            "table",
+        )
+
+    # 5. Placement Statistics
+    if any(w in q_lower for w in ["placement", "package", "salary", "lpa", "ctc", "placed", "recruiters"]):
+        return (
+            "placement_statistics",
+            None,
+            ["average_package", "highest_package", "department"],
+            ["average_package"],
+            "stats",
+        )
+
+    # 6. Academic Calendar & Timetables
+    if any(w in q_lower for w in ["calendar", "timetable", "time table", "schedule", "commence", "exam", "vacation"]):
+        return (
+            "academic_calendar",
+            None,
+            ["event", "date_range", "academic_year"],
+            ["event", "date_range"],
+            "schedule",
+        )
+
+    # 7. Department Overview
+    if departments or "department" in q_lower:
+        return (
+            "department_information",
+            None,
+            ["programs", "hod", "overview"],
+            ["department_name"],
+            "department_overview",
+        )
+
+    return (
+        "general_factual",
+        None,
+        ["answer_text"],
+        [],
+        "text",
+    )
 
 
 class QueryUnderstander:
@@ -250,17 +483,44 @@ class QueryUnderstander:
         intent = _classify_intent(normalized)
         sub_queries = _decompose_query(raw_query)
 
-        # Extract entities (simple pattern-based)
+        # Extract entities dynamically without hardcoded names
         entities = []
+        try:
+            from app.intelligence.entity_engine.identity_resolver import extract_person_name_from_query
+            person_candidate = extract_person_name_from_query(raw_query)
+            if person_candidate:
+                canonical_name = person_candidate
+                try:
+                    from app.intelligence.knowledge_graph import get_knowledge_graph
+                    kg = get_knowledge_graph()
+                    matched_ent = kg.find_entity(person_candidate, entity_type="person")
+                    if matched_ent:
+                        canonical_name = matched_ent["canonical_name"]
+                        meta = matched_ent.get("metadata", {})
+                        expanded += f" {canonical_name} {meta.get('designation', '')}"
+                except Exception as e:
+                    logger.debug("KG entity linking skipped", error=str(e))
 
-        # Person names (Dr./Prof. Title Case)
-        name_pattern = r"\b(?:Dr|Prof|Mr|Ms|Mrs)\.?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*"
+                entities.append(ExtractedEntity(
+                    text=person_candidate,
+                    entity_type="person",
+                    normalized=canonical_name,
+                    confidence=1.0,
+                ))
+        except Exception as e:
+            logger.debug("Dynamic entity extraction error", error=str(e))
+
+        # Additional regex for title-prefixed person names (e.g., Dr./Prof.)
+        name_pattern = r"\b(?:Dr|Prof|Mr|Ms|Mrs|Shri|Smt)\.?\s+[A-Z][A-Za-z0-9\.\(\)]*(?:\s+[A-Z0-9][A-Za-z0-9\.\(\)]*)*"
         for match in re.finditer(name_pattern, raw_query):
-            entities.append(ExtractedEntity(
-                text=match.group(0),
-                entity_type="person",
-                normalized=match.group(0).strip(),
-            ))
+            extracted = match.group(0).strip()
+            existing_names = [e.normalized.lower() for e in entities]
+            if extracted.lower() not in existing_names and not any(extracted.lower() in en for en in existing_names):
+                entities.append(ExtractedEntity(
+                    text=extracted,
+                    entity_type="person",
+                    normalized=extracted,
+                ))
 
         # Department entities
         for dept in departments:
@@ -270,9 +530,17 @@ class QueryUnderstander:
                 normalized=dept,
             ))
 
+        # Semantic intent and completeness requirements analysis
+        cat, role, attrs, req_fields, ans_type = _analyze_query_semantics(
+            raw_query, normalized, intent, departments, entities
+        )
+
         logger.debug(
             "Query understood",
             intent=intent,
+            category=cat,
+            target_role=role,
+            required_fields=req_fields,
             departments=departments,
             temporal_refs=temporal_refs,
             is_statistical=is_statistical,
@@ -289,4 +557,9 @@ class QueryUnderstander:
             is_comparison=is_comparison,
             expanded_query=expanded,
             sub_queries=sub_queries,
+            requested_intent_category=cat,
+            target_role=role,
+            requested_attributes=attrs,
+            required_fields=req_fields,
+            expected_answer_type=ans_type,
         )

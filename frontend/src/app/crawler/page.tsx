@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Globe,
   Play,
@@ -38,48 +38,25 @@ export default function CrawlerPage() {
   const [activeJob, setActiveJob] = useState<CrawlJob | null>(null);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
-  const [discoveredPages] = useState<DiscoveredPage[]>([
-    {
-      url: "https://mitaoe.ac.in",
-      title: "MIT Academy of Engineering, Alandi (D), Pune",
-      status: "processed",
-      crawl_depth: 0,
-      last_crawled_at: new Date().toISOString(),
-      content_hash: "a9f82d1c7e4...",
-    },
-    {
-      url: "https://mitaoe.ac.in/academics/computer-engineering.php",
-      title: "School of Computer Engineering — MITAOE",
-      status: "processed",
-      crawl_depth: 1,
-      last_crawled_at: new Date().toISOString(),
-      content_hash: "b3c84e912f0...",
-    },
-    {
-      url: "https://mitaoe.ac.in/placements/placement-statistics.php",
-      title: "Training & Placement Cell Records",
-      status: "processed",
-      crawl_depth: 1,
-      last_crawled_at: new Date().toISOString(),
-      content_hash: "d4e21a889b7...",
-    },
-    {
-      url: "https://mitaoe.ac.in/admissions/fees-structure.php",
-      title: "Fee Structure & Scholarships Notice",
-      status: "processed",
-      crawl_depth: 2,
-      last_crawled_at: new Date().toISOString(),
-      content_hash: "e5f9104c3a2...",
-    },
-    {
-      url: "https://mitaoe.ac.in/circulars/academic-council-2024.pdf",
-      title: "Academic Council Constitution Order",
-      status: "document_found",
-      crawl_depth: 2,
-      last_crawled_at: new Date().toISOString(),
-      content_hash: "f1a23490b8c...",
-    },
-  ]);
+  const [discoveredPages, setDiscoveredPages] = useState<DiscoveredPage[]>([]);
+
+  useEffect(() => {
+    const fetchPages = async () => {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      try {
+        const res = await fetch(`${apiUrl}/api/v1/crawl/pages?limit=30`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setDiscoveredPages(data);
+          }
+        }
+      } catch (e) {
+        console.warn("Could not fetch crawl pages:", e);
+      }
+    };
+    fetchPages();
+  }, []);
 
   const handleStartCrawl = async (e: React.FormEvent) => {
     e.preventDefault();

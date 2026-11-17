@@ -1,11 +1,21 @@
 """
-VEDANTA — Evaluation & Benchmark Execution Engine
-Runs the 12 institutional test categories and generates an empirical accuracy and latency scorecard.
+VEDANTA — MITAOE Standardized Institutional Benchmark Evaluation Engine
+Executes the 38 institutional test items across 9 categories.
+Computes Precision@5, Recall@5, MRR, Correctness, Citation Accuracy, and Latency (p50, p95, p99).
 """
 
+from __future__ import annotations
+
 import asyncio
+import json
+import math
+import sys
 import time
-from typing import List, Dict, Any
+from pathlib import Path
+from typing import Dict, Any, List
+
+# Ensure backend root is on sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from app.evaluation.dataset import MITAOE_EVALUATION_DATASET, EvaluationItem
 from app.intelligence.answer_engine.pipeline import AnswerPipeline
@@ -13,65 +23,25 @@ from app.retrieval.pipeline import get_retrieval_pipeline
 
 
 async def run_evaluation() -> Dict[str, Any]:
-    print("=" * 80)
-    print(" VEDANTA — MITAOE INSTITUTIONAL KNOWLEDGE BENCHMARK EVALUATION")
-    print("=" * 80)
+    print("=" * 88)
+    print(" VEDANTA — MITAOE GROUND TRUTH BENCHMARK EVALUATION (ACADEMIC YEAR 2026–27)")
+    print("=" * 88)
 
-    # Initialize retrieval pipeline with baseline knowledge chunks if empty
     retrieval_pipe = get_retrieval_pipeline()
-    if not retrieval_pipe.bm25.is_ready:
-        print("\n[INFO] Seeding baseline institutional knowledge chunks for evaluation...")
-        baseline_chunks = [
-            {
-                "chunk_id": "seed-01",
-                "text": "The Department of Computer Engineering at MIT Academy of Engineering (MITAOE) is headed by Dr. Sandip A. Gade. Dr. Sandip A. Gade is the Head of Department (HOD) for Computer Engineering for AY 2024-25.",
-                "source_url": "https://mitaoe.ac.in/academics/computer-engineering.php",
-                "source_title": "MITAOE School of Computer Engineering Leadership",
-                "page_number": None,
-            },
-            {
-                "chunk_id": "seed-02",
-                "text": "MITAOE Placement Report 2023-24: For Computer Engineering, the highest package offered reached 24.5 LPA, with an average package of 6.8 LPA. Over 88% of eligible students were placed in leading companies like Amazon, Cisco, and Veritas.",
-                "source_url": "https://mitaoe.ac.in/placements/placement-statistics.php",
-                "source_title": "MITAOE Training & Placement Cell Disclosures",
-                "page_number": 3,
-            },
-            {
-                "chunk_id": "seed-03",
-                "text": "Fees Regulating Authority (FRA) Approved Fee Structure for B.Tech programs at MITAOE for Academic Year 2024-25: Tuition Fee is ₹ 1,55,000 and Development Fee is ₹ 20,000, bringing the total approved fee to ₹ 1,75,000 for Open Category candidates.",
-                "source_url": "https://mitaoe.ac.in/admissions/fee-structure-2024-25.pdf",
-                "source_title": "Approved Fee Structure Notification",
-                "page_number": 1,
-            },
-            {
-                "chunk_id": "seed-04",
-                "text": "MITAOE Academic Council governs autonomous academic regulations, curriculum design, and examinations. Members include the Director Dr. Mahesh Goudar (Chairman), Dean Academics Dr. Sunita Barve, and all Department Heads.",
-                "source_url": "https://mitaoe.ac.in/governance/academic-council.php",
-                "source_title": "MITAOE Governance & Academic Council",
-                "page_number": None,
-            },
-            {
-                "chunk_id": "seed-05",
-                "text": "Student Support and Grievance Redressal at MITAOE: The institution maintains an active Anti-Ragging Committee, Internal Complaints Committee (ICC), and Student Grievance Cell in compliance with AICTE guidelines.",
-                "source_url": "https://mitaoe.ac.in/students/grievance-cell.php",
-                "source_title": "Student Grievance Redressal Cell",
-                "page_number": None,
-            },
-            {
-                "chunk_id": "seed-06",
-                "text": "Academic Calendar AY 2024-25: Term I instructional commencement begins on July 15, 2024. In-Semester Assessments occur in September, and End-Semester Examinations commence in December 2024.",
-                "source_url": "https://mitaoe.ac.in/academics/academic-calendar-2024-25.pdf",
-                "source_title": "Academic Calendar Circular AY 2024-25",
-                "page_number": 2,
-            },
-        ]
-        retrieval_pipe.add_chunks(baseline_chunks)
+    if not retrieval_pipe.bm25.is_ready or not retrieval_pipe.faiss.is_ready:
+        print("[WARN] Retrieval pipeline was uninitialized. Loading indexes from disk...")
+        retrieval_pipe.initialize()
 
     pipeline = AnswerPipeline()
     results = []
     latencies = []
+    reciprocal_ranks = []
+    precision_at_5_list = []
+    recall_at_5_list = []
+    citation_accuracies = []
 
-    print(f"\nExecuting {len(MITAOE_EVALUATION_DATASET)} benchmark questions across 12 categories...\n")
+    total_items = len(MITAOE_EVALUATION_DATASET)
+    print(f"\nExecuting {total_items} benchmark questions across 9 institutional categories...\n")
 
     for idx, item in enumerate(MITAOE_EVALUATION_DATASET, start=1):
         t0 = time.perf_counter()
@@ -82,62 +52,130 @@ async def run_evaluation() -> Dict[str, Any]:
         answer_text = resp.get("answer", "")
         verification_status = resp.get("verification_status", "uncertain")
         is_answerable = resp.get("is_answerable", True)
+        evidence = resp.get("evidence", [])
 
-        # Accuracy evaluation: check if keywords or honest refusal are present
+        # 1. Correctness Check
         keywords_matched = [kw for kw in item.expected_answer_keywords if kw.lower() in answer_text.lower()]
-        
         if not item.is_answerable:
-            # For unanswerable questions, passing means honest refusal
-            is_accurate = not is_answerable or any(ref in answer_text.lower() for ref in ["unable", "cannot find", "verified information", "not found"])
+            # For unanswerable items, passing means honest refusal and insufficient_evidence
+            is_correct = (
+                not is_answerable
+                or verification_status == "insufficient_evidence"
+                or any(ref in answer_text.lower() for ref in ["unable to find", "cannot find", "not available", "insufficient evidence", "no verified information"])
+            )
         else:
-            is_accurate = len(keywords_matched) > 0 and is_answerable
+            is_correct = len(keywords_matched) > 0 and is_answerable and verification_status in ["verified", "partially_verified"]
+
+        # 2. Retrieval Metrics (Precision@5, Recall@5, MRR)
+        if item.is_answerable:
+            relevant_retrieved = 0
+            first_relevant_rank = None
+
+            for r_idx, ev in enumerate(evidence[:5], start=1):
+                ev_text = (ev.get("passage") or ev.get("text") or "").lower()
+                source_url = ev.get("source_url") or ""
+                # A chunk is considered relevant if it contains an expected keyword or matches source domain
+                is_rel = any(kw.lower() in ev_text for kw in item.expected_answer_keywords) or (
+                    item.expected_source_domain in source_url and "mitaoe" in ev_text
+                )
+                if is_rel:
+                    relevant_retrieved += 1
+                    if first_relevant_rank is None:
+                        first_relevant_rank = r_idx
+
+            p5 = relevant_retrieved / 5.0
+            precision_at_5_list.append(p5)
+
+            # Recall@5: Did we retrieve at least 1 relevant chunk for this query?
+            r5 = 1.0 if relevant_retrieved > 0 else 0.0
+            recall_at_5_list.append(r5)
+
+            rr = 1.0 / first_relevant_rank if first_relevant_rank else 0.0
+            reciprocal_ranks.append(rr)
+
+            # Citation accuracy: verify cited sources are official mitaoe.ac.in links
+            valid_citations = [e for e in evidence if item.expected_source_domain in (e.get("source_url") or "")]
+            citation_acc = len(valid_citations) / len(evidence) if evidence else 0.0
+            citation_accuracies.append(citation_acc)
+        else:
+            # Negative control: correctly identifying insufficient evidence gives perfect precision/recall for refusal
+            precision_at_5_list.append(1.0 if is_correct else 0.0)
+            recall_at_5_list.append(1.0 if is_correct else 0.0)
+            reciprocal_ranks.append(1.0 if is_correct else 0.0)
+            citation_accuracies.append(1.0)
 
         results.append({
             "id": item.id,
             "category": item.category,
             "question": item.question,
             "latency_ms": round(duration_ms, 1),
-            "accurate": is_accurate,
-            "verification_status": verification_status,
+            "correct": is_correct,
+            "status": verification_status,
+            "cache_hit": resp.get("cache_hit", False),
             "keywords_matched": len(keywords_matched),
-            "total_keywords": len(item.expected_answer_keywords),
+            "answer_preview": answer_text[:120].replace("\n", " "),
         })
 
-        status_symbol = "[PASS]" if is_accurate else "[FAIL]"
-        safe_category = item.category[:22]
-        print(f"[{idx:02d}/12] {status_symbol:<6} | {safe_category:<22} | {duration_ms:5.1f} ms | Status: {verification_status}")
-        print(f"       Q: {item.question[:65]}...")
-        if not is_accurate:
-            print(f"       Actual Answer: {answer_text[:90]}...")
+        status_tag = "[PASS]" if is_correct else "[FAIL]"
+        cat_tag = item.category[:22]
+        print(f"[{idx:02d}/{total_items:02d}] {status_tag:<6} | {cat_tag:<22} | {duration_ms:5.1f} ms | Status: {verification_status:<20}")
+        print(f"       Q: {item.question}")
+        if not is_correct:
+            print(f"       ❌ Answer: {answer_text[:100]}...")
 
-    # Calculate Summary Metrics
-    total_questions = len(results)
-    passed_questions = sum(1 for r in results if r["accurate"])
-    accuracy_rate = (passed_questions / total_questions) * 100.0
-    avg_latency = sum(latencies) / len(latencies)
+    # Aggregations & Metrics Calculation
+    total_q = len(results)
+    passed_q = sum(1 for r in results if r["correct"])
+    correctness_pct = (passed_q / total_q) * 100.0
+    mean_precision_5 = sum(precision_at_5_list) / len(precision_at_5_list) * 100.0
+    mean_recall_5 = sum(recall_at_5_list) / len(recall_at_5_list) * 100.0
+    mrr = sum(reciprocal_ranks) / len(reciprocal_ranks)
+    mean_citation_acc = sum(citation_accuracies) / len(citation_accuracies) * 100.0
+
     sorted_latencies = sorted(latencies)
-    p50_latency = sorted_latencies[len(sorted_latencies) // 2]
-    p95_latency = sorted_latencies[int(len(sorted_latencies) * 0.95)]
+    avg_latency = sum(latencies) / len(latencies)
+    p50_lat = sorted_latencies[len(sorted_latencies) // 2]
+    p95_lat = sorted_latencies[int(len(sorted_latencies) * 0.95)]
+    p99_lat = sorted_latencies[min(int(len(sorted_latencies) * 0.99), len(sorted_latencies) - 1)]
 
-    print("\n" + "=" * 80)
-    print(" VEDANTA BENCHMARK EVALUATION SUMMARY")
-    print("=" * 80)
-    print(f" Total Benchmark Questions:  {total_questions}")
-    print(f" Passed Verification:        {passed_questions} / {total_questions} ({accuracy_rate:.1f}%)")
-    print(f" Average Response Latency:   {avg_latency:.1f} ms")
-    print(f" p50 Latency:                {p50_latency:.1f} ms")
-    print(f" p95 Latency:                {p95_latency:.1f} ms")
-    print("=" * 80)
+    print("\n" + "=" * 88)
+    print(" VEDANTA BENCHMARK EVALUATION SCORECARD")
+    print("=" * 88)
+    print(f" Total Benchmark Questions:  {total_q}")
+    print(f" Ground Truth Accuracy:      {passed_q} / {total_q} ({correctness_pct:.1f}%)")
+    print(f" Precision@5:                {mean_precision_5:.1f}%")
+    print(f" Recall@5:                   {mean_recall_5:.1f}%")
+    print(f" Mean Reciprocal Rank (MRR): {mrr:.3f}")
+    print(f" Official Citation Accuracy: {mean_citation_acc:.1f}%")
+    print("-" * 88)
+    print(f" Average Latency:            {avg_latency:.1f} ms")
+    print(f" p50 Response Time:          {p50_lat:.1f} ms")
+    print(f" p95 Response Time:          {p95_lat:.1f} ms")
+    print(f" p99 Response Time:          {p99_lat:.1f} ms")
+    print("=" * 88)
 
-    return {
-        "total_questions": total_questions,
-        "passed_questions": passed_questions,
-        "accuracy_rate": accuracy_rate,
-        "avg_latency_ms": round(avg_latency, 1),
-        "p50_latency_ms": round(p50_latency, 1),
-        "p95_latency_ms": round(p95_latency, 1),
+    summary = {
+        "total_questions": total_q,
+        "passed_questions": passed_q,
+        "correctness_rate": round(correctness_pct, 2),
+        "precision_at_5": round(mean_precision_5, 2),
+        "recall_at_5": round(mean_recall_5, 2),
+        "mrr": round(mrr, 4),
+        "citation_accuracy": round(mean_citation_acc, 2),
+        "latency_avg_ms": round(avg_latency, 2),
+        "latency_p50_ms": round(p50_lat, 2),
+        "latency_p95_ms": round(p95_lat, 2),
+        "latency_p99_ms": round(p99_lat, 2),
         "results": results,
     }
+
+    # Persist scorecard artifact
+    output_path = Path("backend/app/evaluation/benchmark_results.json")
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(summary, f, indent=2)
+    print(f"\nBenchmark scorecard persisted to: {output_path}")
+
+    return summary
 
 
 if __name__ == "__main__":

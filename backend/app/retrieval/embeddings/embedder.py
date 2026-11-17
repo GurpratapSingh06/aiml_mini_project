@@ -29,10 +29,18 @@ def _get_model():
             return _model_instance
         try:
             from sentence_transformers import SentenceTransformer
+            import time
             device = _detect_device()
+            t0 = time.perf_counter()
             logger.info("Loading embedding model", model=settings.embedding_model, device=device)
-            _model_instance = SentenceTransformer(settings.embedding_model, device=device)
-            logger.info("Embedding model loaded", model=settings.embedding_model)
+            try:
+                # Fast path: load from local cache without remote HuggingFace Hub network checks
+                _model_instance = SentenceTransformer(settings.embedding_model, device=device, local_files_only=True)
+            except Exception as e_local:
+                logger.warning("Local-only model load failed, falling back to network download", error=str(e_local))
+                _model_instance = SentenceTransformer(settings.embedding_model, device=device)
+            load_ms = (time.perf_counter() - t0) * 1000
+            logger.info("Embedding model loaded", model=settings.embedding_model, load_ms=round(load_ms, 2))
             return _model_instance
         except ImportError:
             logger.error("sentence-transformers not installed")
@@ -62,6 +70,8 @@ def _detect_device() -> str:
 
 def _l2_normalize(vectors: np.ndarray) -> np.ndarray:
     """L2-normalize a batch of vectors for cosine similarity via inner product."""
+    if vectors.ndim == 1:
+        vectors = vectors.reshape(1, -1)
     norms = np.linalg.norm(vectors, axis=1, keepdims=True)
     norms = np.where(norms == 0, 1.0, norms)
     return vectors / norms
@@ -102,6 +112,9 @@ class SentenceEmbedder:
         Returns:
             numpy array of shape (N, dim) or None on failure
         """
+        if isinstance(texts, str):
+            texts = [texts]
+
         if not texts:
             return np.empty((0, self._dim), dtype=np.float32)
 
